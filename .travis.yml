@@ -1,7 +1,5 @@
 language: node_js
 
-group: deprecated-2017Q2
-
 node_js: 6
 
 services:
@@ -14,6 +12,7 @@ env:
 branches:
   only:
     - master
+    - staging
 
 addons:
   apt:
