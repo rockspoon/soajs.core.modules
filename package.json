@@ -29,13 +29,13 @@
     "jsonschema": "1.1.1",
     "merge": "1.2.0",
     "mongodb": "2.2.31",
-    "nodemailer": "1.11.0",
+    "nodemailer": "4.4.0",
     "nodemailer-direct-transport": "3.3.2",
-    "nodemailer-sendmail-transport": "1.0.0",
-    "nodemailer-smtp-transport": "2.7.2",
+    "nodemailer-sendmail-transport": "1.0.2",
+    "nodemailer-smtp-transport": "2.7.4",
     "object-hash": "1.1.5",
     "request": "2.81.0",
-    "soajs.core.libs" : "1.0.1"
+    "soajs.core.libs": "1.0.1"
   },
   "devDependencies": {
     "express-session": "1.14.2",
