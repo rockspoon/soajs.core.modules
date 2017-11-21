@@ -81,7 +81,97 @@ var provision = {
     },*/
     "getDaemonGrpConf": function (grp, name, cb) {
         return provision.model.getDaemonGrpConf(grp, name, cb);
-    }
+    },
+	
+	"getTenantByCode": function(code, cb){
+		provision.model.getTenantFromCode(code, cb);
+	},
+	
+	"getEnvironmentExtKeyWithDashboardAccess": function(tenant, cb){
+		provision.getTenantByCode(tenant.code, function(error, record){
+			if(error){
+				return cb(error);
+			}
+			
+			if (!record) {
+				return cb(new Error("No Tenant found"));
+			}
+			
+			var extKey = findExtKeyForEnvironment(record, process.env.SOAJS_ENV.toUpperCase());
+			if (!extKey) {
+				return cb(new Error("No External key found for Environment" + process.env.SOAJS_ENV.toUpperCase() + ", for this tenant"));
+			}
+			
+			let data = {
+				extKey: extKey,
+				locked: record.locked || false
+			};
+			
+			return cb(null, data);
+		});
+		
+		function findExtKeyForEnvironment(tenantRecord, env) {
+			var extKey = null;
+			//loop in tenant applications
+			tenantRecord.applications.forEach(function (oneApplication) {
+				
+				//loop in tenant keys
+				oneApplication.keys.forEach(function (oneKey) {
+					
+					//loop in tenant ext keys
+					oneKey.extKeys.forEach(function (oneExtKey) {
+						//get the ext key for the request environment who also has dashboardAccess true
+						//note: only one extkey per env has dashboardAccess true, simply find it and break
+						if (oneExtKey.env && oneExtKey.env === env && oneExtKey.dashboardAccess) {
+							extKey = oneExtKey.extKey;
+						}
+					});
+				});
+			});
+			return extKey;
+		}
+	},
+	
+	"getEnvironmentsFromACL": function(ACL, envRecords){
+		var envInfo = [];
+		
+		envRecords.forEach(function (oneEnv) {
+			envInfo.push({
+				domain: oneEnv.domain,
+				sitePrefix: oneEnv.sitePrefix,
+				apiPrefix: oneEnv.apiPrefix,
+				port: oneEnv.port,
+				protocol: oneEnv.protocol,
+				code: oneEnv.code.toUpperCase(),
+				deployer: {
+					type: oneEnv.deployer.type,
+					selected: oneEnv.deployer.selected
+				}
+			});
+		});
+		
+		if (process.env.SOAJS_ENV.toLowerCase() !== 'dashboard') {
+			var environments = Object.keys(ACL);
+			var tmpEnv = [];
+			envRecords.forEach(function (oneEnv) {
+				tmpEnv.push(oneEnv.code);
+			});
+			
+			for (let i = environments.length - 1; i >= 0; i--) {
+				if (tmpEnv.indexOf(environments[i].toUpperCase()) !== -1 && !ACL[environments[i]].access && !ACL[environments[i]].apis && !ACL[environments[i]].apisRegExp && !ACL[environments[i]].apisPermission) {
+					environments[i] = environments[i].toUpperCase();
+				}
+			}
+			
+			for (let i = envInfo.length - 1; i >= 0; i--) {
+				if (environments.indexOf(envInfo[i].code.toUpperCase()) === -1) {
+					envInfo.splice(i, 1);
+				}
+			}
+		}
+		
+		return envInfo;
+	}
 };
 
 module.exports = provision;

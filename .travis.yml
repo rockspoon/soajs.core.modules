@@ -2,10 +2,6 @@ language: node_js
 
 node_js: 6
 
-services:
-  - mongodb
-  - elasticsearch
-
 env:
   - CXX=g++-4.8
 
@@ -23,7 +19,11 @@ addons:
   hosts:
     - localhost
 
+services:
+  - mongodb
+
 before_install:
+  - curl -O https://download.elastic.co/elasticsearch/release/org/elasticsearch/distribution/deb/elasticsearch/2.3.0/elasticsearch-2.3.0.deb && sudo dpkg -i --force-confnew elasticsearch-2.3.0.deb && sudo service elasticsearch start
   - sudo apt-get update && sudo apt-get install sendmail python make g++
 
 before_script:

@@ -10,49 +10,51 @@ var oauthUracCollectionName = "oauth_urac";
 var regEnvironment = (process.env.SOAJS_ENV || "dev");
 regEnvironment = regEnvironment.toLowerCase();
 
+const sensitiveEnvCodes = ["dashboard", "portal"];
+
 module.exports = {
     "init": function (dbConfig) {
         mongo = new Mongo(dbConfig);
 
-        mongo.ensureIndex(tenantCollectionName, {code: 1}, {unique: true}, function (err, result) {
+        mongo.createIndex(tenantCollectionName, {code: 1}, {unique: true}, function (err, result) {
         });
-        mongo.ensureIndex(tenantCollectionName, {'applications.keys.key': 1}, function (err, result) {
+        mongo.createIndex(tenantCollectionName, {'applications.keys.key': 1}, function (err, result) {
         });
-        mongo.ensureIndex(productsCollectionName, {code: 1}, {unique: true}, function (err, result) {
+        mongo.createIndex(productsCollectionName, {code: 1}, {unique: true}, function (err, result) {
         });
-        mongo.ensureIndex(productsCollectionName, {'packages.code': 1}, function (err, result) {
+        mongo.createIndex(productsCollectionName, {'packages.code': 1}, function (err, result) {
         });
-        mongo.ensureIndex(oauthUracCollectionName, { userId: 1 }, { unique: true }, function (err, result) {
+        mongo.createIndex(oauthUracCollectionName, { userId: 1 }, { unique: true }, function (err, result) {
         });
-        mongo.ensureIndex(tokenCollectionName, { token: 1, type: 1 }, function (err, result) {
+        mongo.createIndex(tokenCollectionName, { token: 1, type: 1 }, function (err, result) {
         });
-        mongo.ensureIndex(daemonGrpConfCollectionName, { daemonConfigGroup: 1, daemon: 1 }, function (err, result) {
+        mongo.createIndex(daemonGrpConfCollectionName, { daemonConfigGroup: 1, daemon: 1 }, function (err, result) {
         });
     },
 
     "getAccessToken": function (bearerToken, cb) {
         mongo.findOne(tokenCollectionName, {"token": bearerToken, "type": "accessToken"}, function (err, rec) {
             if (rec && rec.env === regEnvironment) {
-                return cb(err, rec);
+	            return cb(err, rec);
             }
             else {
-                if (rec && rec.env === "dashboard")
-                    return cb(err, rec);
-                else
-                    return cb (err, null);
+	            if (rec && sensitiveEnvCodes.includes(rec.env.toLowerCase()))
+		            return cb(err, rec);
+	            else
+		            return cb(err, null);
             }
         });
     },
-    "getRefreshToken": function (bearerToken, cb) {
-        mongo.findOne(tokenCollectionName, {"token": bearerToken, "type": "refreshToken"}, function (err, rec) {
-            if (rec && rec.env === regEnvironment)
-                return cb (err, rec);
-            else {
-                if (rec && rec.env === "dashboard")
-                    return cb(err, rec);
-                else
-                    return cb (err, null);
-            }
+	"getRefreshToken": function (bearerToken, cb) {
+		mongo.findOne(tokenCollectionName, {"token": bearerToken, "type": "refreshToken"}, function (err, rec) {
+			if (rec && rec.env === regEnvironment)
+				return cb(err, rec);
+			else {
+				if (rec && sensitiveEnvCodes.includes(rec.env.toLowerCase()))
+					return cb(err, rec);
+				else
+					return cb(err, null);
+			}
         });
     },
     "saveAccessToken": function (accessToken, clientId, expires, user, cb) {
@@ -204,7 +206,8 @@ module.exports = {
                                             "key": tenants[i].applications[j].keys[k].key,
                                             "tenant": {
                                                 "id": tenants[i]._id.toString(),
-                                                "code": tenants[i].code
+                                                "code": tenants[i].code,
+                                                "locked": tenants[i].locked?true:false
                                             },
                                             "application": {
                                                 "product": tenants[i].applications[j].product,
@@ -231,5 +234,11 @@ module.exports = {
                 return cb(null, keyStruct);
             }
         });
-    }
+    },
+	
+	"getTenantFromCode": function(code, cb){
+		mongo.findOne(tenantCollectionName, {"code": code.toUpperCase()}, cb);
+	},
+	
+	
 };

@@ -1,27 +1,54 @@
 'use strict';
 var fs = require('fs');
 var Mongo = require('../../soajs.mongo');
+var soajsUtils = require("soajs.core.libs").utils;
+
 var regFile = (process.env.SOAJS_PROFILE || __dirname + "/../../profiles/single.js");
 var mongo;
 var environmentCollectionName = 'environment';
 var hostCollectionName = 'hosts';
+var controllersCollectionName = 'controllers';
 var servicesCollectionName = 'services';
 var daemonsCollectionName = 'daemons';
+var resourcesCollectionName = 'resources';
+var customCollectionName = 'custom_registry';
 
 function initMongo(dbConfiguration) {
     if (!mongo) {
         mongo = new Mongo(dbConfiguration);
 
-        mongo.ensureIndex(environmentCollectionName, {code: 1}, {unique: true}, function (err, result) {
+        mongo.createIndex(environmentCollectionName, {code: 1}, {unique: true}, function (err, result) {
         });
-        mongo.ensureIndex(hostCollectionName, {env: 1}, function (err, result) {
+        mongo.createIndex(hostCollectionName, {env: 1}, function (err, result) {
         });
-        mongo.ensureIndex(hostCollectionName, {name: 1, env: 1}, function (err, result) {
+        mongo.createIndex(hostCollectionName, {name: 1, env: 1}, function (err, result) {
         });
-        mongo.ensureIndex(servicesCollectionName, {name: 1}, function (err, result) {
+        mongo.createIndex(servicesCollectionName, {name: 1}, function (err, result) {
         });
-        mongo.ensureIndex(servicesCollectionName, {port: 1, name: 1}, {unique: true}, function (err, result) {
+        mongo.createIndex(servicesCollectionName, {port: 1, name: 1}, {unique: true}, function (err, result) {
         });
+    }
+}
+
+function buildResources(destination, resources, envCode) {
+    if (resources && Array.isArray(resources) && resources.length > 0) {
+        for (var i = 0; i < resources.length; i++) {
+            if (resources[i].type) {
+                if (!destination[resources[i].type])
+                    destination[resources[i].type] = {};
+                if (resources[i].created === envCode.toUpperCase() || !resources[i].sharedEnvs || (resources[i].sharedEnvs && resources[i].sharedEnvs[envCode.toUpperCase()]))
+                    destination[resources[i].type][resources[i].name] = resources[i];
+            }
+        }
+    }
+}
+
+function buildCustomRegistry(destination, custom, envCode) {
+    if (custom && Array.isArray(custom) && custom.length > 0) {
+        for (var i = 0; i < custom.length; i++) {
+            if (custom[i].created === envCode.toUpperCase() || !custom[i].sharedEnvs || (custom[i].sharedEnvs && custom[i].sharedEnvs[envCode.toUpperCase()]))
+                destination[custom[i].name] = custom[i];
+        }
     }
 }
 
@@ -38,34 +65,71 @@ module.exports = {
             if (envRecord && JSON.stringify(envRecord) !== '{}') {
                 obj['ENV_schema'] = envRecord;
             }
-            mongo.find(servicesCollectionName, function (error, servicesRecords) {
-                if (error) {
-                    return callback(error);
+            else
+                obj['ENV_schema'] = {};
+            //build resources plugged for this environment
+            var criteria = {};
+            if ("DASHBOARD" === envCode.toUpperCase()) {
+                criteria = {
+                    'created': envCode.toUpperCase(),
+                    'plugged': true
+                };
+            }
+            else {
+                criteria = {
+                    $or: [
+                        {
+                            'created': envCode.toUpperCase(),
+                            'plugged': true
+                        }, {
+                            'created': "DASHBOARD",
+                            'plugged': true,
+                            'shared': true
+                        }]
+                };
+            }
+            mongo.find(resourcesCollectionName, criteria, function (error, resourcesRecords) {
+                obj['ENV_schema'].resources = {};
+                if (resourcesRecords) {
+                    buildResources(obj['ENV_schema'].resources, resourcesRecords, envCode);
                 }
-                if (servicesRecords && Array.isArray(servicesRecords) && servicesRecords.length > 0) {
-                    obj['services_schema'] = servicesRecords;
-                }
-                mongo.find(daemonsCollectionName, function (error, daemonsRecords) {
-                    if (error) {
-                        return callback(error);
+                //build custom registry
+                mongo.find(customCollectionName, criteria, function (error, customRecords) {
+                    if (!obj['ENV_schema'].custom)
+                        obj['ENV_schema'].custom = {};
+                    if (customRecords) {
+                        buildCustomRegistry(obj['ENV_schema'].custom, customRecords, envCode);
                     }
-                    if (servicesRecords && Array.isArray(daemonsRecords) && daemonsRecords.length > 0) {
-                        obj['daemons_schema'] = daemonsRecords;
-                    }
-                    if (process.env.SOAJS_DEPLOY_HA){
-                        return callback(null, obj);
-                    }
-                    else {
-                        mongo.find(hostCollectionName, {'env': envCode}, function (error, hostsRecords) {
+                    mongo.find(servicesCollectionName, function (error, servicesRecords) {
+                        if (error) {
+                            return callback(error);
+                        }
+                        if (servicesRecords && Array.isArray(servicesRecords) && servicesRecords.length > 0) {
+                            obj['services_schema'] = servicesRecords;
+                        }
+                        mongo.find(daemonsCollectionName, function (error, daemonsRecords) {
                             if (error) {
                                 return callback(error);
                             }
-                            if (hostsRecords && Array.isArray(hostsRecords) && hostsRecords.length > 0) {
-                                obj['ENV_hosts'] = hostsRecords;
+                            if (servicesRecords && Array.isArray(daemonsRecords) && daemonsRecords.length > 0) {
+                                obj['daemons_schema'] = daemonsRecords;
                             }
-                            return callback(null, obj);
+                            if (process.env.SOAJS_DEPLOY_HA) {
+                                return callback(null, obj);
+                            }
+                            else {
+                                mongo.find(hostCollectionName, {'env': envCode}, function (error, hostsRecords) {
+                                    if (error) {
+                                        return callback(error);
+                                    }
+                                    if (hostsRecords && Array.isArray(hostsRecords) && hostsRecords.length > 0) {
+                                        obj['ENV_hosts'] = hostsRecords;
+                                    }
+                                    return callback(null, obj);
+                                });
+                            }
                         });
-                    }
+                    });
                 });
             });
         });
@@ -131,19 +195,6 @@ module.exports = {
         else
             return cb(null, false);
     },
-    "loadRegistryByEnv": function (param, cb) {
-        initMongo(param.dbConfig);
-        mongo.findOne(environmentCollectionName, {'code': param.envCode.toUpperCase()}, function (err, envRecord) {
-            if (err) {
-                return cb(err);
-            }
-            var obj = {};
-            if (envRecord && JSON.stringify(envRecord) !== '{}') {
-                obj['ENV_schema'] = envRecord;
-            }
-            return cb(null, obj);
-        });
-    },
     "loadOtherEnvHosts": function (param, cb) {
         initMongo(param.dbConfig);
         var pattern = new RegExp("controller", "i");
@@ -153,7 +204,7 @@ module.exports = {
         };
         mongo.find(hostCollectionName, condition, cb);
     },
-    "loadProfile": function (envFrom) {
+    "loadProfile": function (envFrom, cb) {
         if (fs.existsSync(regFile)) {
             delete require.cache[require.resolve(regFile)];
             var regFileObj = require(regFile);
@@ -172,15 +223,59 @@ module.exports = {
                     "l2": "provision",
                     "env": registry.environment
                 };
-                return registry;
+                return cb(null, registry);
             }
             else {
-                throw new Error('Invalid profile path: ' + regFile);
+                return cb (new Error('Invalid profile file: ' + regFile), null);
             }
         }
         else {
-            throw new Error('Invalid profile path: ' + regFile);
+            return cb (new Error('Invalid profile path: ' + regFile), null);
         }
-        return null;
-    }
+    },
+	"getAllEnvironments": function(cb){
+		mongo.find(environmentCollectionName, {}, cb);
+	},
+	"addUpdateEnvControllers": function(param, cb){
+		let condition = {
+			"env": param.env.toLowerCase(),
+			"ip": param.ip
+		};
+		
+		if(!process.env.SOAJS_MANUAL){
+			condition.ip = "127.0.0.1";
+		}
+		
+		if(param.data && param.data.services){
+			for(let service in param.data.services){
+				if(param.data.services[service].awarenessStats){
+					for(let hostIp in param.data.services[service].awarenessStats){
+						let hostIp2 = hostIp.replace(/\./g, "_dot_");
+						param.data.services[service].awarenessStats[hostIp2] = soajsUtils.cloneObj(param.data.services[service].awarenessStats[hostIp]);
+						delete param.data.services[service].awarenessStats[hostIp];
+					}
+				}
+			}
+		}
+		
+		if(param.data && param.data.daemons){
+			for(let service in param.data.daemons){
+				if(param.data.daemons[service].awarenessStats){
+					for(let hostIp in param.data.daemons[service].awarenessStats){
+						let hostIp2 = hostIp.replace(/\./g, "_dot_");
+						param.data.daemons[service].awarenessStats[hostIp2] = soajsUtils.cloneObj(param.data.daemons[service].awarenessStats[hostIp]);
+						delete param.data.daemons[service].awarenessStats[hostIp];
+					}
+				}
+			}
+		}
+		
+		let document = {
+			"$set": {
+				"data": param.data,
+				"ts": param.ts
+			}
+		};
+		mongo.update(controllersCollectionName, condition, document, {"upsert": true, "safe": true, "multi": false}, cb);
+	}
 };

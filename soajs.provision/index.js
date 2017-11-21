@@ -27,7 +27,8 @@ function getKeyData(keyStruct, extKey) {
                         "extKey": extKey,
                         "tenant": {
                             "id": keyStruct.tenant.id,
-                            "code": keyStruct.tenant.code
+                            "code": keyStruct.tenant.code,
+                            "locked": keyStruct.tenant.locked
                         },
                         "application": {
                             "product": keyStruct.application.product,
@@ -195,6 +196,19 @@ var provision = {
             });
         });
     },
+	
+	"getTenantByCode": function(tenantCode, cb){
+		core.provision.getTenantByCode(tenantCode, cb);
+	},
+	
+	"getEnvironmentExtKeyWithDashboardAccess": function(tenant, cb){
+		core.provision.getTenantByCode(tenant, cb);
+	},
+	
+	"getEnvironmentsFromACL": function(ACL, Environments){
+		return core.provision.getTenantByCode(ACL, Environments);
+	},
+	
     "generateSaveAccessRefreshToken": function (user, req, cb) {
         var userFromAuthorise = auth(req);
         var clientId = (userFromAuthorise) ? userFromAuthorise.name : req.soajs.tenant.id.toString();
