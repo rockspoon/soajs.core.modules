@@ -1,3 +1,4 @@
+'use strict';
 /**
  * @license
  * Copyright SOAJS All Rights Reserved.
@@ -5,8 +6,6 @@
  * Use of this source code is governed by an Apache license that can be
  * found in the LICENSE file at the root of this repository
  */
-
-'use strict';
 
 
 const fs = require('fs');
@@ -43,7 +42,9 @@ let lib = {
 	 */
 	loadTasks: function (grunt, rootPath, tasks) {
 		tasks.forEach(function (name) {
-			if (name === 'grunt-cli') return;
+			if (name === 'grunt-cli') {
+				return;
+			}
 			let cwd = process.cwd();
 			process.chdir(rootPath); // load files from proper root, I don't want to install everything locally per module!
 			grunt.loadNpmTasks(name);
@@ -55,8 +56,7 @@ let lib = {
 module.exports = function (grunt) {
 	//Loading the needed plugins to run the grunt tasks
 	let pluginsRootPath = lib.findRoot();
-	lib.loadTasks(grunt, pluginsRootPath, ['grunt-contrib-jshint', 'grunt-jsdoc', 'grunt-contrib-clean', 'grunt-mocha-test', 'grunt-env'
-		, 'grunt-istanbul', 'grunt-coveralls', 'grunt-babel', 'grunt-contrib-copy']);
+	lib.loadTasks(grunt, pluginsRootPath, ['grunt-contrib-jshint', 'grunt-jsdoc', 'grunt-contrib-clean', 'grunt-mocha-test', 'grunt-env', 'grunt-istanbul', 'grunt-coveralls', 'grunt-babel', 'grunt-contrib-copy']);
 	grunt.initConfig({
 		babel: {
 			options: {
@@ -132,11 +132,17 @@ module.exports = function (grunt) {
 		env: {
 			mochaTest: {
 				SOAJS_ENV: "dev",
+				SOAJS_GATEWAY_NAME: "controller",
+				SOAJS_GATEWAY_VER: "1",
+				SOAJS_GATEWAY_PORT: 4000,
 				SOAJS_PROFILE: __dirname + "/profiles/single.js",
 				APP_DIR_FOR_CODE_COVERAGE: '../'
 			},
 			coverage: {
 				SOAJS_ENV: "dev",
+				SOAJS_GATEWAY_NAME: "controller",
+				SOAJS_GATEWAY_VER: "1",
+				SOAJS_GATEWAY_PORT: 4000,
 				SOAJS_BCRYPT: "true",
 				SOAJS_PROFILE: __dirname + "/profiles/single.js",
 				APP_DIR_FOR_CODE_COVERAGE: '../test/coverage/instrument/'
@@ -214,6 +220,7 @@ module.exports = function (grunt) {
 	grunt.registerTask("default", ['jshint']);
 	grunt.registerTask("integration", ['env:mochaTest', 'mochaTest:integration']);
 	grunt.registerTask("unit", ['env:mochaTest', 'mochaTest:unit']);
+	grunt.registerTask("test-src", ['clean', 'env:mochaTest', 'instrument', 'mochaTest:unit', 'mochaTest:integration']);
 	grunt.registerTask("test", ['clean', 'env:coverage', 'instrument', 'mochaTest:unit', 'mochaTest:integration', 'storeCoverage', 'makeReport']);
 	grunt.registerTask("coverage", ['clean', 'env:coverage', 'instrument', 'mochaTest:unit', 'mochaTest:integration', 'storeCoverage', 'makeReport', 'coveralls']);
 	

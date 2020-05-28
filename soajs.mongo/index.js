@@ -1,63 +1,111 @@
-'use strict';
+"use strict";
+
+/**
+ * @license
+ * Copyright SOAJS All Rights Reserved.
+ *
+ * Use of this source code is governed by an Apache license that can be
+ * found in the LICENSE file at the root of this repository
+ */
+
+
 const core = require("../soajs.core");
 const mongodb = require('mongodb');
-const merge = require('merge');
+//const merge = require('merge');
 const objectHash = require("object-hash");
 
 let cacheDB = {};
-
+let cacheCluster = {};
 
 let cacheDBLib = {
 	"init": function (registryLocation) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+		if (registryLocation && registryLocation.env) {
 			if (!cacheDB) {
 				cacheDB = {};
 			}
 			if (!cacheDB[registryLocation.env]) {
 				cacheDB[registryLocation.env] = {};
 			}
-			if (!cacheDB[registryLocation.env][registryLocation.l1]) {
-				cacheDB[registryLocation.env][registryLocation.l1] = {};
+			if (!cacheCluster) {
+				cacheCluster = {};
 			}
-			if (!cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2]) {
-				cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2] = {};
+			if (!cacheCluster[registryLocation.env]) {
+				cacheCluster[registryLocation.env] = {};
+			}
+			
+			if (registryLocation.cluster) {
+				if (!cacheCluster[registryLocation.env][registryLocation.cluster]) {
+					cacheCluster[registryLocation.env][registryLocation.cluster] = {};
+				}
+			} else if (registryLocation.l1 && registryLocation.l2) {
+				if (!cacheDB[registryLocation.env][registryLocation.l1]) {
+					cacheDB[registryLocation.env][registryLocation.l1] = {};
+				}
+				if (!cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2]) {
+					cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2] = {};
+				}
 			}
 		}
 	},
 	"flush": function (registryLocation) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+		if (registryLocation && registryLocation.cluster) {
+			cacheCluster[registryLocation.env][registryLocation.cluster].client = null;
+		} else if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
 			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].db = null;
 		}
 	},
 	"getCache": function (registryLocation) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+		if (registryLocation && registryLocation.cluster) {
+			if (cacheCluster[registryLocation.env][registryLocation.cluster]) {
+				return cacheCluster[registryLocation.env][registryLocation.cluster];
+			}
+		} else if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
 			if (cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2]) {
 				return cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2];
 			}
 		}
 		return null;
 	},
-	"setTimeConnected": function (registryLocation, timeConnected) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
-			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].timeConnected = timeConnected;
+	"setTimeLoaded": function (registryLocation, timeLoaded) {
+		if (registryLocation && registryLocation.cluster) {
+			cacheCluster[registryLocation.env][registryLocation.cluster].timeLoaded = timeLoaded;
+		} else if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].timeLoaded = timeLoaded;
 		}
 	},
-	"setDB": function (registryLocation, db) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
-			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].db = db;
+	
+	"setDB": function (registryLocation, obj) {
+		if (registryLocation && registryLocation.cluster) {
+			cacheCluster[registryLocation.env][registryLocation.cluster].client = obj.client;
+			if (registryLocation.timeLoaded) {
+				cacheCluster[registryLocation.env][registryLocation.cluster].timeLoaded = registryLocation.timeLoaded;
+			}
+		} else if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].db = obj.db;
+			if (registryLocation.timeLoaded) {
+				cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].timeLoaded = registryLocation.timeLoaded;
+			}
 		}
 	},
 	"setHash": function (registryLocation, config) {
-		if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
-			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].configCloneHash = merge(true, config);
-			delete  cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].configCloneHash.timeConnected;
+		if (registryLocation && registryLocation.cluster) {
+			cacheCluster[registryLocation.env][registryLocation.cluster].configCloneHash = {
+				"servers": config.servers,
+				"credentials": config.credentials || null,
+			};
+			cacheCluster[registryLocation.env][registryLocation.cluster].configCloneHash = objectHash(cacheCluster[registryLocation.env][registryLocation.cluster].configCloneHash);
+		} else if (registryLocation && registryLocation.env && registryLocation.l1 && registryLocation.l2) {
+			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].configCloneHash = {
+				"servers": config.servers,
+				"credentials": config.credentials || null,
+			};
 			cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].configCloneHash = objectHash(cacheDB[registryLocation.env][registryLocation.l1][registryLocation.l2].configCloneHash);
 		}
 	},
+	
 	"setCache": function (obj) {
-		cacheDBLib.setDB(obj.config.registryLocation, obj.db);
+		cacheDBLib.setDB(obj.config.registryLocation, obj);
 		cacheDBLib.setHash(obj.config.registryLocation, obj.config);
-		cacheDBLib.setTimeConnected(obj.config.registryLocation, obj.config.timeConnected);
 	}
 };
 
@@ -278,7 +326,7 @@ MongoDriver.prototype.update = function () {
 	
 	function handleResponse(response, cb) {
 		let result = null;
-		if (response && response.result){
+		if (response && response.result) {
 			result = response.result;
 		} else if (response) {
 			result = response;
@@ -720,7 +768,7 @@ MongoDriver.prototype.findOneAndDelete = function () {
 /**
  * v 3.x verified
  *
- * Params: collectionName, query, options, <extra>, cb
+ * Params: collectionName, query, options, cb
  * extra is being ignore since the new mongo driver does nto support this
  */
 MongoDriver.prototype.findOne = MongoDriver.prototype.findOneFields = function () {
@@ -1042,8 +1090,10 @@ MongoDriver.prototype.deleteMany = function (collectionName, criteria, options, 
 MongoDriver.prototype.closeDb = function () {
 	let self = this;
 	if (self.client) {
-		self.client.close();
-		self.flushDb();
+		if (!process.env.SOAJS_MONGO_CON_KEEPALIVE) {
+			self.client.close();
+			self.flushDb();
+		}
 	}
 };
 MongoDriver.prototype.flushDb = function () {
@@ -1073,31 +1123,62 @@ MongoDriver.prototype.getMongoDB = function (cb) {
  *
  */
 function connect(obj, cb) {
-	let timeConnected = 0;
 	let configCloneHash = null;
+	let timeLoaded = null;
 	if (!obj.config) {
 		return cb(core.error.generate(195));
 	}
 	
-	if (obj.config && obj.config.registryLocation && obj.config.registryLocation.env && obj.config.registryLocation.l1 && obj.config.registryLocation.l2) {
-		obj.config = core.registry.get(obj.config.registryLocation.env)[obj.config.registryLocation.l1][obj.config.registryLocation.l2];
-		
+	if (obj.config.registryLocation && obj.config.registryLocation.env && ((obj.config.registryLocation.l1 && obj.config.registryLocation.l2) || obj.config.registryLocation.cluster)) {
 		let cache = cacheDBLib.getCache(obj.config.registryLocation);
-		
-		if (!obj.db && cache.db) {
-			obj.db = cache.db;
+		if (cache && (cache.db || cache.client)) {
+			if (!obj.db && cache.client) {
+				obj.client = cache.client;
+				let prefix = obj.config.prefix;
+				let dbName = obj.config.name;
+				if (prefix && prefix !== "") {
+					dbName = prefix + dbName;
+				}
+				obj.db = obj.client.db(dbName);
+			}
+			if (!obj.db && cache.db) {
+				obj.db = cache.db;
+			}
+			if (cache.configCloneHash) {
+				configCloneHash = cache.configCloneHash;
+			}
+			timeLoaded = cache.timeLoaded;
 		}
-		if (cache.timeConnected) {
-			timeConnected = cache.timeConnected;
-		}
-		if (cache.configCloneHash) {
-			configCloneHash = cache.configCloneHash;
-		}
+	}
+	if (!obj.config.registryLocation) {
+		timeLoaded = new Date().getTime();
+		obj.config.registryLocation = {"timeLoaded": timeLoaded};
 	}
 	
 	if (obj.config.credentials) {
 		if (Object.hasOwnProperty.call(obj.config.credentials, 'username') && obj.config.credentials.username === '') {
 			delete obj.config.credentials;
+		}
+	}
+	if (obj.db) {
+		if (obj.config.registryLocation && obj.config.registryLocation.timeLoaded === timeLoaded) {
+			return cb();
+		}
+		//let currentConfObj = merge(true, obj.config);
+		//delete currentConfObj.registryLocation;
+		//delete currentConfObj.extraParam;
+		//delete currentConfObj.cluster;
+		//if (obj.config.registryLocation && obj.config.registryLocation.cluster) {
+		//	delete currentConfObj.name;
+		//}
+		let currentConfObj = {
+			"servers": obj.config.servers,
+			"credentials": obj.config.credentials || null,
+		};
+		currentConfObj = objectHash(currentConfObj);
+		if (currentConfObj === configCloneHash) {
+			cacheDBLib.setTimeLoaded(obj.config.registryLocation, obj.config.registryLocation.timeLoaded);
+			return cb();
 		}
 	}
 	
@@ -1106,30 +1187,14 @@ function connect(obj, cb) {
 		return cb(core.error.generate(190));
 	}
 	
-	if ((obj.db && obj.config.timeConnected && (timeConnected === obj.config.timeConnected)) || (obj.db && !obj.config.registryLocation)) {
-		return cb();
-	}
-	
-	if (obj.db && (!obj.config.timeConnected || (timeConnected !== obj.config.timeConnected))) {
-		let currentConfObj = merge(true, obj.config);
-		delete currentConfObj.timeConnected;
-		currentConfObj = objectHash(currentConfObj);
-		if (currentConfObj === configCloneHash) {
-			obj.config.timeConnected = new Date().getTime();
-			cacheDBLib.setTimeConnected(obj.config.registryLocation, obj.config.timeConnected);
-			return cb();
-		}
-	}
-	
 	if (obj.pending) {
 		return setImmediate(function () {
 			connect(obj, cb);
 		});
 	}
-	obj.pending = true;
 	
+	obj.pending = true;
 	mongodb.connect(url, obj.config.URLParam, function (err, client) {
-		obj.config.timeConnected = new Date().getTime();
 		if (err) {
 			obj.pending = false;
 			return cb(err);
@@ -1138,6 +1203,7 @@ function connect(obj, cb) {
 				obj.pending = false;
 				return cb(new Error("You must specify a db name."));
 			}
+			/*
 			client.on('timeout', function () {
 				displayLog("Connection To Mongo has timed out!", obj.config.name);
 				obj.flushDb();
@@ -1147,7 +1213,7 @@ function connect(obj, cb) {
 				displayLog("Connection To Mongo has been closed!", obj.config.name);
 				obj.flushDb();
 			});
-			
+			*/
 			if (obj.client) {
 				obj.client.close();
 			}
