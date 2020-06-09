@@ -16,7 +16,6 @@ const lib = require('soajs.core.libs');
 const { format } = require('winston');
 const { combine, json } = format;
 const newrelicFormatter = require('@newrelic/winston-enricher');
-const jsonFormat = format.json();
 
 /* Logger Component
  *
@@ -49,21 +48,12 @@ module.exports = {
 				delete configClone.formatter;
 			}
 
-			console.log("configClone >> ", configClone)
-
-			// test json format
-			const jsonLog = jsonFormat.transform(configClone);
-			console.log("jsonLog >> ", jsonLog);
-			// end test json format
-
 			let jsonLogWithNewRelic = combine(
 				json(),
 				newrelicFormatter()
 			);
 
 			const logObj = jsonLogWithNewRelic.transform(configClone);
-
-			console.log("logObj >> ", logObj)
 			
 			_log = new bunyan.createLogger(logObj);
 		}
