@@ -16,7 +16,7 @@ const lib = require('soajs.core.libs');
 const { format } = require('winston');
 const { combine, json } = format;
 const newrelicFormatter = require('@newrelic/winston-enricher');
-const alignFormat = format.align();
+const jsonFormat = format.align();
 
 /* Logger Component
  *
@@ -51,11 +51,10 @@ module.exports = {
 
 			console.log("configClone >> ", configClone)
 
-			// test align format
-			configClone.message = "some message";
-			const alignLog = alignFormat.transform(configClone);
-			console.log(alignLog);
-			// end test align format
+			// test json format
+			const jsonLog = jsonFormat.transform(configClone);
+			console.log("jsonLog >> ", jsonLog);
+			// end test json format
 
 			let logObj = combine(
 				json(configClone),
