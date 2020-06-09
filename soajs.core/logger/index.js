@@ -13,7 +13,7 @@ require('newrelic')
 const bunyan = require('bunyan');
 let _log = null;
 const lib = require('soajs.core.libs');
-const logform = require('logform');
+const { logform } = require('logform');
 const { combine } = logform;
 const newrelicFormatter = require('@newrelic/winston-enricher');
 
