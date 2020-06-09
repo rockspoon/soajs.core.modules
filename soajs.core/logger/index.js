@@ -51,7 +51,7 @@ module.exports = {
 			let logObj = combine(
 				configClone,
 				newrelicFormatter()
-			)
+			);
 			
 			_log = new bunyan.createLogger(logObj);
 		}
