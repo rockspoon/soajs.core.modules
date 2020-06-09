@@ -14,7 +14,7 @@ const bunyan = require('bunyan');
 let _log = null;
 const lib = require('soajs.core.libs');
 const { format } = require('winston');
-const { combine } = format;
+const { combine, json } = format;
 const newrelicFormatter = require('@newrelic/winston-enricher');
 
 /* Logger Component
@@ -49,7 +49,7 @@ module.exports = {
 			}
 
 			let logObj = combine(
-				configClone,
+				json(configClone),
 				newrelicFormatter()
 			);
 			
