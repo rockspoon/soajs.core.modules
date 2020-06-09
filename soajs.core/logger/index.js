@@ -56,10 +56,12 @@ module.exports = {
 			console.log("jsonLog >> ", jsonLog);
 			// end test json format
 
-			let logObj = combine(
-				json(jsonLog),
+			let jsonLogWithNewRelic = combine(
+				json(),
 				newrelicFormatter()
 			);
+
+			const logObj = jsonLogWithNewRelic.transform(configClone);
 
 			console.log("logObj >> ", logObj)
 			
