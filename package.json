@@ -44,7 +44,6 @@
     "elasticsearch-deletebyquery": "1.6.0",
     "handlebars": "4.7.6",
     "jsonschema": "1.2.6",
-    "logform": "^2.1.2",
     "merge": "1.2.1",
     "mongodb": "3.5.5",
     "nodemailer": "6.4.6",
@@ -53,6 +52,7 @@
     "nodemailer-smtp-transport": "2.7.4",
     "object-hash": "2.0.3",
     "request": "2.88.2",
-    "soajs.core.libs": "1.2.0"
+    "soajs.core.libs": "1.2.0",
+    "winston": "^3.2.1"
   }
 }
