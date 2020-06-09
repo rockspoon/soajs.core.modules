@@ -48,6 +48,8 @@ module.exports = {
 				delete configClone.formatter;
 			}
 
+			console.log("configClone >> ", configClone)
+
 			let logObj = combine(
 				json(configClone),
 				newrelicFormatter()
