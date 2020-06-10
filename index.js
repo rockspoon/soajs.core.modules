@@ -7,6 +7,8 @@
  * found in the LICENSE file at the root of this repository
  */
 
+require('newrelic')
+
 module.exports = {
     "core": require("./soajs.core"),
     "es": require("./soajs.es"),

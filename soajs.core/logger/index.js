@@ -8,8 +8,6 @@
  * found in the LICENSE file at the root of this repository
  */
 
-require('newrelic')
-
 const bunyan = require('bunyan');
 let _log = null;
 const lib = require('soajs.core.libs');
