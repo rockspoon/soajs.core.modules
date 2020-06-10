@@ -54,6 +54,8 @@ module.exports = {
 			);
 
 			const logObj = jsonLogWithNewRelic.transform(configClone);
+
+			console.log("getLogger >> ", logObj)
 			
 			_log = new bunyan.createLogger(logObj);
 		}
