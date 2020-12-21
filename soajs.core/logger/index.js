@@ -8,10 +8,12 @@
  * found in the LICENSE file at the root of this repository
  */
 
-
 const bunyan = require('bunyan');
 let _log = null;
-const lib = require("soajs.core.libs");
+const lib = require('soajs.core.libs');
+const { format } = require('winston');
+const { combine, json } = format;
+const newrelicFormatter = require('@newrelic/winston-enricher');
 
 /* Logger Component
  *
@@ -43,8 +45,17 @@ module.exports = {
 				configClone.stream = formatOut;
 				delete configClone.formatter;
 			}
+
+			let jsonLogWithNewRelic = combine(
+				json(),
+				newrelicFormatter()
+			);
+
+			const logObj = jsonLogWithNewRelic.transform(configClone);
+
+			console.log("getLogger >> ", logObj)
 			
-			_log = new bunyan.createLogger(configClone);
+			_log = new bunyan.createLogger(logObj);
 		}
 		return _log;
 	},
